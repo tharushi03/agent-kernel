@@ -1,9 +1,9 @@
 # interface/whatsapp_app.py
 import os
 from agentkernel.api import RESTAPI
+from agentkernel import Agent as OpenAIAgent
 from agentkernel.openai import OpenAIModule
 from agentkernel.whatsapp import AgentWhatsAppRequestHandler
-from agents import Agent as OpenAIAgent
 
 # --- Define your Vehicle Buy Assistant agent ---
 # You can either reuse the same agent logic from your CLI,

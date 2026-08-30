@@ -1,41 +1,47 @@
 ```markdown
 # 🚗 Vehicle Buy Assistant
 
+A conversational AI assistant designed to help users compare vehicles, understand their fit based on budget and lifestyle, and receive personalized recommendations through a simple CLI or WhatsApp-ready interface.
+
 ## 1. Problem Statement
 
-Buying a car is one of the most stressful and confusing consumer experiences. Buyers face:
-- Overwhelming options with confusing specifications
-- Lack of transparent pricing and comparison information
-- Difficulty matching personal needs with available vehicles
-- Risk of making uninformed decisions
+Buying a car is one of the most stressful and expensive decisions many people make. Buyers often face:
 
-**SDG 9**: Industry, Innovation, and Infrastructure
-**SDG 11**: Sustainable Cities and Communities
+- Too many options with inconsistent specifications and pricing
+- Limited transparency around trade-offs between price, fuel efficiency, safety, and purpose
+- Difficulty aligning personal needs with the right vehicle type
+- Risk of choosing a car that does not match budget, usage, or lifestyle
 
-This project addresses these challenges by using AI to provide personalized, data-driven car recommendations through a simple conversational interface.
+This creates friction for everyday consumers and can lead to poor purchasing decisions. The problem is especially relevant to the goals of **SDG 9: Industry, Innovation, and Infrastructure** and **SDG 11: Sustainable Cities and Communities**, because better-informed mobility choices can lead to cleaner, more efficient, and more sustainable transportation decisions.
+
+This project addresses that challenge by using AI to guide the buyer through a structured recommendation process, reduce uncertainty, and make vehicle selection more transparent and accessible.
 
 ---
 
 ## 2. Solution Overview
 
-A multi-agent AI system that helps people find the perfect car through a conversational interface. The system uses:
+The Vehicle Buy Assistant is a multi-agent system that collects user preferences, searches a vehicle database, and generates explainable recommendations.
 
-### Three Specialized Agents:
-1. **Profile Agent** - Interviews users about budget, vehicle type, usage, and must-have features
-2. **Market Agent** - Searches a vehicle database for matching cars
-3. **Recommendation Agent** - Ranks each car with pros, cons, and clear recommendations
+### Three specialized agents
 
-### Key Features:
-- **Conversational Interface** - Natural language interaction via CLI (WhatsApp-ready)
-- **Memory Management** - Remembers user preferences across sessions
-- **Smart Matching** - Scores vehicles based on user preferences
-- **Transparent Recommendations** - Explains why each car is recommended
+1. **Profile Agent** — gathers the user’s budget, preferred vehicle type, usage context, and must-have features
+2. **Market Agent** — searches the vehicle database and filters candidates based on the collected preferences
+3. **Recommendation Agent** — ranks the matches and explains why each recommendation is a strong fit
 
-### Agent Kernel Features Used:
-- Multi-Agent Orchestration
-- Non-Volatile Cache (session memory)
-- Tool Integration (vehicle database search)
-- WhatsApp Integration (ready for deployment)
+### Key features
+
+- Conversational interaction through a CLI interface, with WhatsApp-ready integration
+- Persistent memory for user preferences across sessions
+- Intelligent vehicle matching using structured filtering and scoring
+- Clear, explainable recommendations with supporting reasons
+
+### Agent Kernel capabilities used
+
+- Multi-agent orchestration
+- Non-volatile cache for persistence
+- Volatile cache for per-session state
+- Tool integration for vehicle search logic
+- WhatsApp integration readiness
 
 ---
 
@@ -43,50 +49,52 @@ A multi-agent AI system that helps people find the perfect car through a convers
 
 ### Prerequisites
 
-- Python 3.12 or 3.13 (3.14 NOT supported)
+- Python 3.12 or 3.13
 - Git
-- OpenAI API key (optional for advanced features)
+- OpenAI API key (optional for advanced or cloud-backed conversational features)
 
-### Installation Steps
+### Installation steps
 
-#### Step 1: Clone the Repository
+#### Step 1: Clone the repository
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/agent-kernel.git
 cd agent-kernel
 ```
 
-#### Step 2: Install Dependencies
+#### Step 2: Install dependencies
 
 ```bash
-pip install agentkernel[cli,openai]
+pip install -r requirements.txt
 ```
 
-#### Step 3: Navigate to the Project
+#### Step 3: Navigate to the project directory
 
 ```bash
 cd use-cases/vehicle_buy_assistant
 ```
 
-#### Step 4: Set Up Environment
+#### Step 4: Set the environment variable
 
 ```bash
 export OPENAI_API_KEY=your-api-key-here
 ```
 
+> Windows users should use `set` instead of `export`.
+
 ---
 
 ## 4. How to Run the Solution
 
-### CLI Mode (Testing)
+### CLI mode
 
 ```bash
 python main.py
 ```
 
-### Example Conversation
+### Example conversation
 
-```
+```text
 🚗 Welcome to the Vehicle Buy Assistant!
 Tell me what you're looking for, or type 'exit' to quit.
 
@@ -128,16 +136,43 @@ You: good safety features
 💡 Would you like more details on any of these?
 ```
 
-### WhatsApp Integration (Optional)
+### WhatsApp integration (optional)
+
+The project includes a WhatsApp-ready integration layer built with Agent Kernel’s request handler and OpenAI module support.
+
+#### Setup
+
+1. Set the required environment variables with your Meta credentials:
+
+```bash
+export AK_WHATSAPP__VERIFY_TOKEN=your_verify_token
+export AK_WHATSAPP__ACCESS_TOKEN=your_permanent_access_token
+export AK_WHATSAPP__PHONE_NUMBER_ID=your_phone_number_id
+export AK_WHATSAPP__API_VERSION=v21.0
+```
+
+2. Install dependencies if needed:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the WhatsApp server:
 
 ```bash
 python interface/whatsapp_app.py
 ```
 
-### Project Structure
+### Project structure
 
-```
+```text
 use-cases/vehicle_buy_assistant/
+├── AGENTS.md
+├── README.md
+├── SPEC.md
+├── main.py
+├── requirements.txt
+├── user_preferences.json
 ├── agents/
 │   ├── __init__.py
 │   ├── profile_agent.py
@@ -148,35 +183,39 @@ use-cases/vehicle_buy_assistant/
 │   └── vehicle_search.py
 ├── interface/
 │   ├── __init__.py
-│   ├── cli.py
-│   └── whatsapp_app.py
+│   ├── whatsapp_app.py
+│   └── __init__.py
 ├── data/
 │   └── vehicles.json
-├── main.py
-├── requirements.txt
-└── README.md
+└── .
 ```
 
 ---
 
 ## 🔧 Troubleshooting
 
-### Python Version Issues
-Agent Kernel requires Python 3.12 or 3.13. Check your version:
+### Python version issues
+
+Agent Kernel requires Python 3.12 or 3.13. Check your version with:
+
 ```bash
 python --version
 ```
-If you have Python 3.14, install Python 3.12 and use it instead.
 
-### Import Errors
-If you get `ModuleNotFoundError`, ensure you're running from the correct directory:
+If you are on Python 3.14, install Python 3.12 or 3.13 and rerun the project.
+
+### Import errors
+
+If you see a `ModuleNotFoundError`, ensure you are running from the correct directory:
+
 ```bash
 cd use-cases/vehicle_buy_assistant
 python main.py
 ```
 
-### Config Warning
-The warning `Could not open yaml settings file at: config.yaml` is harmless. You can ignore it.
+### Config warning
+
+The warning about a missing `config.yaml` file is generally harmless and can be ignored unless you need explicit custom configuration.
 
 ---
 
@@ -184,16 +223,16 @@ The warning `Could not open yaml settings file at: config.yaml` is harmless. You
 
 | Criteria | How This Project Addresses It |
 |----------|------------------------------|
-| **Idea Value (40%)** | Solves a real, universal problem with clear practical value |
-| **Agent Kernel Usage (30%)** | Multi-agent orchestration, tool integration, memory management, WhatsApp-ready |
-| **End Product (20%)** | Functional, polished, easy to run and test |
-| **Documentation (10%)** | Complete README with setup and run instructions |
+| **Idea Value (40%)** | Solves a real and widespread problem with practical value for everyday vehicle buyers |
+| **Agent Kernel Usage (30%)** | Uses multi-agent orchestration, memory management, tool integration, and WhatsApp-ready interfaces |
+| **End Product (20%)** | Provides a functional CLI experience with a clear recommendation flow and reusable structure |
+| **Documentation (10%)** | Includes clear setup, run instructions, system overview, and usage examples |
 
 ---
 
 ## 🤝 Submission
 
-This project was submitted for the **IDEALIZE 2026 Mini-Competition**.
+This project is prepared for the **IDEALIZE 2026 Mini-Competition**.
 
 **Team Members:**
 - [Your Name] - GitHub: [your-username]
