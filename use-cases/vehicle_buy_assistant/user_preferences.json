@@ -1,0 +1,16 @@
+{
+  "tharu": {
+    "budget": "i want car under $50000",
+    "last_updated": "2026-08-30T21:33:09.157413",
+    "type": "Electric",
+    "usage": "family",
+    "features": "safety"
+  },
+  "367c4a32": {
+    "budget": "under $30000",
+    "last_updated": "2026-08-25T11:46:04.782894",
+    "type": "truck",
+    "usage": "family",
+    "features": "safety"
+  }
+}

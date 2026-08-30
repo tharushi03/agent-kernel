@@ -1,0 +1,64 @@
+{
+  "vehicles": [
+    {
+      "id": 1,
+      "make": "Toyota",
+      "model": "RAV4",
+      "year": 2024,
+      "type": "SUV",
+      "price": 29500,
+      "mpg": 28,
+      "safety_rating": 5,
+      "features": ["Backup Camera", "Adaptive Cruise", "Lane Keep Assist"],
+      "description": "Reliable family SUV with excellent safety"
+    },
+    {
+      "id": 2,
+      "make": "Honda",
+      "model": "CR-V",
+      "year": 2024,
+      "type": "SUV",
+      "price": 28800,
+      "mpg": 27,
+      "safety_rating": 5,
+      "features": ["Honda Sensing", "Apple CarPlay", "Blind Spot Monitor"],
+      "description": "Comfortable SUV with great safety tech"
+    },
+    {
+      "id": 3,
+      "make": "Mazda",
+      "model": "CX-5",
+      "year": 2024,
+      "type": "SUV",
+      "price": 27500,
+      "mpg": 24,
+      "safety_rating": 5,
+      "features": ["Sporty Handling", "Premium Interior", "Smart Brake Support"],
+      "description": "Sporty SUV with premium feel"
+    },
+    {
+      "id": 4,
+      "make": "Tesla",
+      "model": "Model Y",
+      "year": 2024,
+      "type": "Electric",
+      "price": 45000,
+      "mpg": 0,
+      "safety_rating": 5,
+      "features": ["Autopilot", "Large Screen", "Over-the-air Updates"],
+      "description": "Electric SUV with cutting-edge tech"
+    },
+    {
+      "id": 5,
+      "make": "Ford",
+      "model": "Escape",
+      "year": 2024,
+      "type": "SUV",
+      "price": 26500,
+      "mpg": 26,
+      "safety_rating": 4,
+      "features": ["Co-Pilot360", "Hybrid Option", "Cargo Space"],
+      "description": "Affordable SUV with good fuel efficiency"
+    }
+  ]
+}
