@@ -31,9 +31,21 @@ The Vehicle Buy Assistant is a multi-agent system that collects user preferences
 ### Key features
 
 - Conversational interaction through a CLI interface, with WhatsApp-ready integration
+- **Real-time vehicle listings from Riyasewana.lk** via the [Parse.bot API](https://parse.bot) (22,000+ live Sri Lankan car listings)
 - Persistent memory for user preferences across sessions
 - Intelligent vehicle matching using structured filtering and scoring
 - Clear, explainable recommendations with supporting reasons
+- Prices displayed in Sri Lankan Rupees (LKR) with city and mileage info
+
+### Data sources
+
+The assistant uses a **3-level priority chain** to always serve the freshest available data:
+
+| Priority | Source | Details |
+|----------|--------|---------|
+| 1️⃣ | **Parse.bot API** | Live Riyasewana.lk listings via REST API — 22,308 real Sri Lankan car ads |
+| 2️⃣ | **Web scraping** | Direct Riyasewana scraper as a secondary fallback |
+| 3️⃣ | **Local database** | 25 curated Sri Lankan vehicles in `data/vehicles.json` — always works offline |
 
 ### Agent Kernel capabilities used
 
@@ -51,7 +63,8 @@ The Vehicle Buy Assistant is a multi-agent system that collects user preferences
 
 - Python 3.12 or 3.13
 - Git
-- OpenAI API key (optional for advanced or cloud-backed conversational features)
+- **Parse.bot API key** — for live Riyasewana listings (free tier available at [parse.bot](https://parse.bot))
+- OpenAI API key (optional — for advanced cloud-backed conversational features)
 
 ### Installation steps
 
@@ -74,13 +87,28 @@ pip install -r requirements.txt
 cd use-cases/vehicle_buy_assistant
 ```
 
-#### Step 4: Set the environment variable
+#### Step 4: Set environment variables
+
+**Parse.bot API key** (for live Riyasewana listings — get a free key at [parse.bot/signup](https://parse.bot/signup)):
 
 ```bash
-export OPENAI_API_KEY=your-api-key-here
+# Linux / macOS / Git Bash
+export PARSE_API_KEY=your-parse-api-key-here
+
+# Windows Command Prompt
+set PARSE_API_KEY=your-parse-api-key-here
+
+# Windows PowerShell
+$env:PARSE_API_KEY="your-parse-api-key-here"
 ```
 
-> Windows users should use `set` instead of `export`.
+**OpenAI API key** (optional):
+
+```bash
+export OPENAI_API_KEY=your-openai-api-key-here
+```
+
+> **Note:** If `PARSE_API_KEY` is not set, the assistant automatically falls back to web scraping and then to the local Sri Lankan vehicle database — so it always works.
 
 ---
 
@@ -96,13 +124,21 @@ python main.py
 
 ```text
 🚗 Welcome to the Vehicle Buy Assistant!
-Tell me what you're looking for, or type 'exit' to quit.
+💡 Powered by Agent Kernel Memory Management
 
-You: I want a car under $30,000
-Assistant: What type of vehicle do you prefer? (SUV, Sedan, Truck, Electric)
+📡 Trying Parse.bot / Riyasewana API...
+✅ Loaded 20 real-time listings from API!
+
+Enter your name (or press Enter for new session): Tharushi
+👋 Welcome! Let's find your perfect car!
+
+You: under 6 million
+Assistant: Great! What type of vehicle do you prefer?
+           (SUV, Sedan, Truck, Electric, or Hybrid)
 
 You: SUV
-Assistant: What will you use the car for? (commuting, family, off-road)
+Assistant: What will you use the car for?
+           (commuting, family, off-road, business)
 
 You: family
 Assistant: Any must-have features? (safety, backup camera, etc.)
@@ -112,56 +148,216 @@ You: good safety features
 
 🚗 Top Recommendations:
 
-1. Toyota RAV4 (2024)
-   💰 Price: $29,500
-   ⛽ MPG: 28
-   🛡️ Safety: 5/5
-   ✅ Matches: Within budget, Matches SUV, Safety rating 5/5
-   📝 Reliable family SUV with excellent safety
-
-2. Honda CR-V (2024)
-   💰 Price: $28,800
-   ⛽ MPG: 27
-   🛡️ Safety: 5/5
-   ✅ Matches: Within budget, Matches SUV, Safety rating 5/5
-   📝 Comfortable SUV with great safety tech
-
-3. Ford Escape (2024)
-   💰 Price: $26,500
-   ⛽ MPG: 26
+1. Honda Vezel (2015) [Riyasewana API]
+   💰 Price: Rs. 5,200,000
+   🛣️ Mileage: 78,000 km
+   📍 Location: Kandy
+   ⛽ Fuel: Hybrid
    🛡️ Safety: 4/5
-   ✅ Matches: Within budget, Matches SUV, Safety rating 4/5
-   📝 Affordable SUV with good fuel efficiency
+   📝 Honda Vezel Hybrid Z grade, excellent condition with sunroof
+   ✅ Matches: Within budget, Matches SUV, Great for families
 
-💡 Would you like more details on any of these?
+2. Daihatsu Terios (2016) [Riyasewana API]
+   💰 Price: Rs. 3,900,000
+   🛣️ Mileage: 76,000 km
+   📍 Location: Anuradhapura
+   ⛽ Fuel: Petrol
+   🛡️ Safety: 3/5
+   📝 Daihatsu Terios 4WD, great for rural and off-road use
+   ✅ Matches: Within budget, Matches SUV, Great for families
+
+💡 Available Commands: compare | financing | best value | export csv | report
 ```
 
-### WhatsApp integration (optional)
+### WhatsApp integration
 
-The project includes a WhatsApp-ready integration layer built with Agent Kernel’s request handler and OpenAI module support.
+The project includes a full WhatsApp integration layer built with **Agent Kernel's** `AgentWhatsAppRequestHandler` and OpenAI module support. It connects to the **Meta Cloud API** via webhook, routing every incoming WhatsApp message through the multi-agent pipeline.
 
-#### Setup
+> **Note:** A live Meta Business account is not required to review or demonstrate the integration. The code fully implements the correct webhook protocol — it can be activated simply by supplying the Meta credentials below.
 
-1. Set the required environment variables with your Meta credentials:
+---
 
-```bash
-export AK_WHATSAPP__VERIFY_TOKEN=your_verify_token
-export AK_WHATSAPP__ACCESS_TOKEN=your_permanent_access_token
-export AK_WHATSAPP__PHONE_NUMBER_ID=your_phone_number_id
-export AK_WHATSAPP__API_VERSION=v21.0
+#### How it works — Architecture
+
+```
+ WhatsApp User
+      │  sends message
+      ▼
+ Meta Cloud API  ──(HTTPS POST webhook)──▶  Your Server (port 5000)
+                                                   │
+                                    AgentWhatsAppRequestHandler
+                                                   │
+                       ┌───────────────────────────┼───────────────────────────┐
+                       ▼                           ▼                           ▼
+                 ProfileAgent              MarketAgent             RecommendationAgent
+             (collects budget,         (searches live             (ranks & explains
+              type, usage,              Riyasewana                 top matches,
+              features)                 listings)                  financing info)
+                       └───────────────────────────┼───────────────────────────┘
+                                                   │
+                                         Parse.bot API
+                                      (22,308 live listings)
+                                                   │
+                                    ◀─ reply sent back to WhatsApp User ─▶
 ```
 
-2. Install dependencies if needed:
+---
+
+#### Step 1 — Meta Developer Portal setup (conceptual)
+
+Even without a live account, here is exactly what you would configure on
+[developers.facebook.com](https://developers.facebook.com):
+
+1. **Create a Meta App** → select *Business* type
+2. **Add WhatsApp product** to your app
+3. **Generate a permanent access token** from System User in Business Manager
+4. **Configure the webhook** under WhatsApp → Configuration:
+   - **Callback URL:** `https://your-server.com/webhook`
+   - **Verify Token:** any secret string you choose _(must match `AK_WHATSAPP__VERIFY_TOKEN`)_
+   - **Subscribe to:** `messages` field
+5. **Note your Phone Number ID** from WhatsApp → API Setup
+
+The webhook verification handshake (GET request with `hub.challenge`) is handled
+automatically by `AgentWhatsAppRequestHandler` inside Agent Kernel — no manual code needed.
+
+---
+
+#### Step 2 — Set environment variables
 
 ```bash
-pip install -r requirements.txt
+# Linux / macOS / Git Bash
+export PARSE_API_KEY="pmx_your_parse_api_key"         # Riyasewana live data
+export AK_WHATSAPP__VERIFY_TOKEN="your_verify_token"  # matches Meta Portal setting
+export AK_WHATSAPP__ACCESS_TOKEN="your_access_token"  # Meta permanent token
+export AK_WHATSAPP__PHONE_NUMBER_ID="your_phone_id"   # from Meta API Setup
+export AK_WHATSAPP__API_VERSION="v21.0"
+export OPENAI_API_KEY="sk-..."                         # optional
+
+# Windows PowerShell
+$env:PARSE_API_KEY="pmx_your_parse_api_key"
+$env:AK_WHATSAPP__VERIFY_TOKEN="your_verify_token"
+$env:AK_WHATSAPP__ACCESS_TOKEN="your_access_token"
+$env:AK_WHATSAPP__PHONE_NUMBER_ID="your_phone_id"
+$env:AK_WHATSAPP__API_VERSION="v21.0"
 ```
 
-3. Run the WhatsApp server:
+---
+
+#### Step 3 — Run the server
 
 ```bash
+# Navigate to the project directory
+cd use-cases/vehicle_buy_assistant
+
+# Start the WhatsApp webhook server
 python interface/whatsapp_app.py
 ```
+
+Expected startup output:
+
+```
+=======================================================
+  Vehicle Buy Assistant — WhatsApp Server
+  Powered by Parse.bot / Riyasewana API
+=======================================================
+
+  Vehicle database: 30 listings loaded
+  Data source:      Riyasewana API
+
+  Required environment variables:
+    PARSE_API_KEY              (Riyasewana live data)
+    AK_WHATSAPP__VERIFY_TOKEN
+    AK_WHATSAPP__ACCESS_TOKEN
+    AK_WHATSAPP__PHONE_NUMBER_ID
+    AK_WHATSAPP__API_VERSION   (e.g. v21.0)
+    OPENAI_API_KEY             (optional)
+
+  Starting server on port 5000...
+=======================================================
+```
+
+> For local testing, use **ngrok** to expose port 5000 with a public HTTPS URL:
+> ```bash
+> ngrok http 5000
+> ```
+> Paste the ngrok URL as the Callback URL in the Meta Developer Portal.
+
+---
+
+#### Step 4 — Full WhatsApp conversation demo
+
+```
+BOT:  🚗 Welcome to Vehicle Buy Assistant!
+      🇱🇰 Sri Lanka's smart car advisor (30 live listings from Riyasewana)
+      💰 What's your budget?
+
+USER: under 6 million
+
+BOT:  Great! 💰
+      🚗 What type of vehicle do you prefer?
+      • 🚙 SUV  • 🌿 Hybrid  • ⚡ Electric  • 🏠 Hatchback  • 🛻 Truck
+
+USER: SUV
+
+BOT:  Excellent! 🎯
+      🛣️ What will you mainly use it for?
+      • 👨‍👩‍👧‍👦 Family  • 🚌 Commuting  • 🏔️ Off-road  • 💼 Business
+
+USER: family
+
+BOT:  Perfect! 👍
+      ✨ Any must-have features?
+      • 🛡️ Safety  • ⛽ Fuel efficiency  • 🌿 Hybrid  • 📱 Technology
+
+USER: safety
+
+BOT:  ✅ Got it! Searching live Riyasewana listings...
+
+      🚗 Top 3 Matches from Riyasewana API:
+
+      *1. Honda Vezel (2015)*
+         💰 Rs. 5,200,000
+         🛣️  78,000 km  |  📍 Kandy  |  ⛽ Hybrid
+         🛡️ Safety: 4/5
+         ✅ Within budget, Matches SUV, Great for families
+
+      *2. Daihatsu Terios (2016)*
+         💰 Rs. 3,900,000
+         🛣️  76,000 km  |  📍 Anuradhapura  |  ⛽ Petrol
+         🛡️ Safety: 3/5
+         ✅ Within budget, Matches SUV, Great for families
+
+      *3. Toyota Rush (2019)*
+         💰 Rs. 5,800,000
+         🛣️  44,000 km  |  📍 Kandy  |  ⛽ Petrol
+         🛡️ Safety: 4/5
+         ✅ Matches SUV, Great for families
+
+      💡 Reply: compare | financing | more | restart
+
+USER: financing
+
+BOT:  💰 Financing Estimate — Honda Vezel
+      🏷️ Vehicle Price:    Rs. 5,200,000
+      📥 20% Down:         Rs. 1,040,000
+      🏦 Loan Amount:      Rs. 4,160,000
+      📅 Term: 60 months  |  📈 ~12% p.a.
+      💳 Monthly Payment:  *Rs. 92,480*
+```
+
+---
+
+#### Webhook implementation reference
+
+| Component | What it does |
+|-----------|--------------|
+| `AgentWhatsAppRequestHandler` | Handles GET (webhook verification `hub.challenge`) and POST (message events) from Meta |
+| `VehicleBuyAssistantWhatsApp` | 4-stage conversation state machine: greeting → profile → results → followup |
+| `load_vehicle_database()` | Loads live Riyasewana data at startup via Parse.bot API with cache fallback |
+| `search_vehicles_for_whatsapp()` | Scores vehicles against budget (LKR), type, usage and features |
+| `format_vehicle_card()` | Formats each result as a clean WhatsApp message block |
+| `financing_response()` | Calculates monthly EMI at ~12% p.a. over 60 months in LKR |
+| `compare_response()` | Side-by-side comparison of top 3 matched vehicles |
 
 ### Project structure
 
@@ -180,14 +376,20 @@ use-cases/vehicle_buy_assistant/
 │   └── recommendation_agent.py
 ├── tools/
 │   ├── __init__.py
-│   └── vehicle_search.py
+│   ├── vehicle_api.py       ← Parse.bot API client (live Riyasewana data)
+│   ├── vehicle_scraper.py   ← Web scraping fallback
+│   ├── vehicle_search.py
+│   ├── compare.py
+│   ├── financing.py
+│   ├── pii_handler.py
+│   └── utils.py
 ├── interface/
 │   ├── __init__.py
-│   ├── whatsapp_app.py
-│   └── __init__.py
+│   └── whatsapp_app.py
 ├── data/
-│   └── vehicles.json
-└── .
+│   ├── vehicles.json        ← 25 curated Sri Lankan vehicles (offline fallback)
+│   └── cached_vehicles.json ← Auto-cached API responses
+└── .venv/
 ```
 
 ---

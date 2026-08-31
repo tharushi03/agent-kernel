@@ -1,11 +1,47 @@
-# main.py - Complete Vehicle Buy Assistant with File Persistence
+# main.py - Complete Vehicle Buy Assistant with Real-Time Scraping
 import json
 import os
 from agentkernel import Session
 from datetime import datetime
 import uuid
 
+# Import new features
+try:
+    from colorama import Fore, Back, Style, init
+    init(autoreset=True)
+    COLOR_ENABLED = True
+except ImportError:
+    COLOR_ENABLED = False
+
+try:
+    from tqdm import tqdm
+    TQDM_ENABLED = True
+except ImportError:
+    TQDM_ENABLED = False
+
+# Import new tools
+from tools.financing import calculate_emi, format_financing_info, calculate_total_cost
+from tools.compare import compare_vehicles, compare_by_attribute, find_best_value
+from tools.pii_handler import PIIGuardian, redact_all_pii, check_for_pii
+from tools.utils import export_to_csv, create_comparison_table, format_recommendation_report, print_vehicle_card
+
+# Import vehicle API (Parse.bot)
+try:
+    from tools.vehicle_api import fetch_vehicles_from_api
+    API_ENABLED = True
+except ImportError:
+    API_ENABLED = False
+
+# Import web scraper
+try:
+    from tools.vehicle_scraper import get_realtime_vehicles
+    SCRAPER_ENABLED = True
+except ImportError:
+    SCRAPER_ENABLED = False
+
 PREFERENCES_FILE = "user_preferences.json"
+pii_guardian = PIIGuardian(auto_redact=True)
+
 
 # ---------- File Persistence Functions ----------
 def save_preferences_to_file(session_id, preferences):
@@ -25,52 +61,144 @@ def load_preferences_from_file(session_id):
         data = json.load(f)
     return data.get(session_id, None)
 
-# ---------- Vehicle Data ----------
+# ---------- Vehicle Data with Real-Time Scraping ----------
 def load_vehicles():
-    data_path = os.path.join(os.path.dirname(__file__), 'data', 'vehicles.json')
-    with open(data_path, 'r') as f:
-        data = json.load(f)
-    return data['vehicles']
+    """
+    Load vehicles with multi-source priority chain:
+      1. Parse.bot API (real Riyasewana data - most reliable)
+      2. Web scraping fallback (Riyasewana + PatPat)
+      3. Local Sri Lankan vehicles.json (always works offline)
+    """
+    vehicles = []
+    cache_path = os.path.join(os.path.dirname(__file__), 'data', 'cached_vehicles.json')
+
+    # ── Priority 1: Parse.bot API ──────────────────────────────
+    if API_ENABLED:
+        try:
+            print_colored("  📡 Trying Parse.bot / Riyasewana API...", Fore.CYAN if COLOR_ENABLED else None)
+            vehicles = fetch_vehicles_from_api(limit=20)
+            if vehicles and len(vehicles) >= 5:
+                print_colored(f"\n✅ Loaded {len(vehicles)} real-time listings from API!\n",
+                              Fore.GREEN if COLOR_ENABLED else None)
+                # Cache successful API response
+                try:
+                    with open(cache_path, 'w') as f:
+                        json.dump(vehicles, f, indent=2)
+                except Exception:
+                    pass
+                return vehicles
+        except Exception as e:
+            print_colored(f"⚠️ API failed: {str(e)[:80]}", Fore.YELLOW if COLOR_ENABLED else None)
+
+    # ── Priority 2: Web scraping ───────────────────────────────
+    if SCRAPER_ENABLED:
+        try:
+            print_colored("  📡 Trying web scraping (Riyasewana + PatPat)...",
+                          Fore.CYAN if COLOR_ENABLED else None)
+            vehicles = get_realtime_vehicles(limit_per_site=10, use_cache=True,
+                                             cache_file=cache_path)
+            if vehicles and len(vehicles) >= 3:
+                print_colored(f"\n✅ Loaded {len(vehicles)} real-time listings from scraping!\n",
+                              Fore.GREEN if COLOR_ENABLED else None)
+                return vehicles
+        except Exception as e:
+            print_colored(f"⚠️ Scraping failed: {str(e)[:80]}",
+                          Fore.YELLOW if COLOR_ENABLED else None)
+
+    # ── Priority 3: Cached results ─────────────────────────────
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, 'r') as f:
+                cached = json.load(f)
+            if cached and len(cached) >= 3:
+                print_colored(f"\n✅ Loaded {len(cached)} vehicles from cache\n",
+                              Fore.GREEN if COLOR_ENABLED else None)
+                return cached
+        except Exception:
+            pass
+
+    # ── Priority 4: Local Sri Lankan database (always works) ───
+    try:
+        data_path = os.path.join(os.path.dirname(__file__), 'data', 'vehicles.json')
+        if os.path.exists(data_path):
+            with open(data_path, 'r') as f:
+                data = json.load(f)
+            vehicles = data.get('vehicles', [])
+            print_colored(f"\n✅ Loaded {len(vehicles)} vehicles from local Sri Lankan database\n",
+                          Fore.GREEN if COLOR_ENABLED else None)
+            return vehicles
+    except Exception as e:
+        print_colored(f"❌ Error loading vehicles: {e}\n", Fore.RED if COLOR_ENABLED else None)
+
+    return []
+
 
 def search_vehicles(preferences, vehicles):
+    """
+    Search and rank vehicles based on user preferences
+    Handles both scraped and local vehicle data formats
+    """
     results = []
+    
     for vehicle in vehicles:
         score = 0
         matches = []
         
+        # Safe field access for scraped data
+        vehicle_type = vehicle.get('type', 'Unknown').lower()
+        vehicle_price = vehicle.get('price', 0)
+        vehicle_mpg = vehicle.get('mpg', 0)
+        vehicle_safety = vehicle.get('safety_rating', 4)
+        vehicle_features = vehicle.get('features', [])
+        
+        # Budget matching
         if preferences.get('budget'):
             try:
                 budget = int(''.join(filter(str.isdigit, preferences['budget'])))
-                if vehicle['price'] <= budget:
+                if vehicle_price <= budget:
                     score += 3
-                    matches.append(f"💰 Within budget (${vehicle['price']:,})")
+                    matches.append(f"💰 Within budget (${vehicle_price:,})" if vehicle_price else f"💰 Within budget")
+                elif vehicle_price <= budget * 1.15:  # Allow 15% flexibility
+                    score += 2
+                    matches.append(f"💰 Slightly over budget")
             except:
                 pass
         
+        # Type matching
         if preferences.get('type'):
-            for word in preferences['type'].lower().split():
-                if word in vehicle['type'].lower():
-                    score += 2
-                    matches.append(f"🚗 Matches {vehicle['type']}")
-                    break
+            pref_type = preferences['type'].lower()
+            if any(word in vehicle_type for word in pref_type.split()):
+                score += 2
+                matches.append(f"🚗 Matches {vehicle.get('type', 'Type')}")
         
+        # Usage matching
         if preferences.get('usage'):
             usage = preferences['usage'].lower()
-            if 'family' in usage and vehicle['type'] in ['SUV', 'Minivan']:
+            if 'family' in usage and vehicle_type in ['suv', 'minivan', 'luxury suv', 'hatchback']:
                 score += 2
                 matches.append("👨‍👩‍👧‍👦 Great for families")
-            elif 'commuting' in usage and vehicle.get('mpg', 0) >= 25:
+            elif 'commuting' in usage and vehicle_mpg >= 20:
                 score += 2
-                matches.append("⛽ Good for commuting")
+                matches.append(f"⛽ Good for commuting ({vehicle_mpg} MPG)")
+            elif 'off-road' in usage and vehicle_type in ['suv', 'truck']:
+                score += 2
+                matches.append("🏔️ Great for off-road")
+            elif 'business' in usage and vehicle_type in ['sedan', 'luxury suv']:
+                score += 2
+                matches.append("💼 Professional appearance")
         
+        # Features matching
         if preferences.get('features'):
             features_lower = preferences['features'].lower()
-            if 'safety' in features_lower and vehicle['safety_rating'] >= 4:
+            if 'safety' in features_lower and vehicle_safety >= 4:
                 score += 2
-                matches.append(f"🛡️ Safety rating {vehicle['safety_rating']}/5")
-            if 'backup' in features_lower and 'Backup Camera' in vehicle['features']:
+                matches.append(f"🛡️ Safety rating {vehicle_safety}/5")
+            if 'efficiency' in features_lower and vehicle_mpg >= 25:
                 score += 1
-                matches.append("📷 Has backup camera")
+                matches.append(f"⛽ Efficient ({vehicle_mpg} MPG)")
+            if ('technology' in features_lower or 'tech' in features_lower) and vehicle_features:
+                score += 1
+                matches.append("📱 Modern technology")
         
         if score > 0:
             results.append({
@@ -79,8 +207,62 @@ def search_vehicles(preferences, vehicles):
                 'matches': matches
             })
     
+    # Sort by score and return top results
     results.sort(key=lambda x: x['score'], reverse=True)
-    return results[:5]
+    return results[:10]
+
+
+# ---------- New Feature Functions ----------
+def show_financing_options(vehicles, selected_indices=None):
+    """Show financing options for selected vehicles"""
+    if selected_indices:
+        selected = [vehicles[i-1] for i in selected_indices if 0 < i <= len(vehicles)]
+    else:
+        selected = vehicles[:3]
+    
+    for vehicle in selected:
+        print(format_financing_info(vehicle))
+        print()
+
+
+def show_comparison(results):
+    """Show vehicle comparison"""
+    vehicles = [result['vehicle'] for result in results[:5]]
+    
+    if len(vehicles) < 2:
+        print_colored("❌ Need at least 2 vehicles to compare.", Fore.RED)
+        return
+    
+    print(create_comparison_table(vehicles))
+
+
+def show_detailed_report(results):
+    """Show detailed recommendation report"""
+    print(format_recommendation_report(results))
+
+
+def find_best_fit(results):
+    """Find and display the best value vehicle"""
+    vehicles = [result['vehicle'] for result in results]
+    print(find_best_value(vehicles))
+
+
+def handle_csv_export(results):
+    """Export recommendations to CSV"""
+    if not results:
+        print_colored("❌ No results to export.", Fore.RED)
+        return
+    
+    message = export_to_csv(results)
+    print_colored(message, Fore.GREEN if "✅" in message else Fore.RED)
+
+
+def print_colored(text, color=None):
+    """Print colored text if colorama is available"""
+    if COLOR_ENABLED and color:
+        print(color + text + Style.RESET_ALL)
+    else:
+        print(text)
 
 # ---------- Memory Management Functions ----------
 def save_search_history(session, search_results):
@@ -138,6 +320,7 @@ def main():
     print("💡 Powered by Agent Kernel Memory Management")
     print("   - Your preferences are remembered across sessions")
     print("   - Search history is saved")
+    print("   - Type 'help' for all commands")
     print("   - Type 'exit' to quit\n")
     
     vehicles = load_vehicles()
@@ -154,7 +337,7 @@ def main():
     
     prefs = state.get_preferences()
     if prefs:
-        print(f"\n👋 Welcome back! I remember your preferences:")
+        print_colored(f"\n👋 Welcome back! I remember your preferences:", Fore.GREEN if COLOR_ENABLED else None)
         print(f"   Budget: {prefs.get('budget', 'Not set')}")
         print(f"   Type: {prefs.get('type', 'Not set')}")
         print(f"   Usage: {prefs.get('usage', 'Not set')}")
@@ -168,6 +351,8 @@ def main():
     history = get_search_history(session)
     if history:
         print(f"📚 You've done {len(history)} previous searches.\n")
+    
+    latest_results = []  # Store latest search results for use with commands
     
     while True:
         try:
@@ -187,6 +372,70 @@ def main():
                         print(f"  {i}. {entry['timestamp'][:10]} - {len(entry['results'])} vehicles found")
                 else:
                     print("📭 No search history yet.")
+                continue
+            
+            # --- New Commands ---
+            if user_input.lower() == 'help':
+                print_colored("\n📖 AVAILABLE COMMANDS:", Fore.CYAN if COLOR_ENABLED else None)
+                print("""
+  Core Commands:
+    • history          - Show past searches
+    • preferences      - Show saved preferences
+    • export csv       - Export results to CSV
+    
+  Analysis Commands (use after search):
+    • compare          - Compare vehicles side-by-side
+    • financing        - Show monthly payment estimates
+    • best value       - Find best value vehicle
+    • report           - Show detailed report
+    
+  System Commands:
+    • help             - Show this help message
+    • exit/quit/bye    - Exit the program
+    • restart          - Start a new search
+                """)
+                continue
+            
+            if user_input.lower() == 'export csv':
+                if latest_results:
+                    handle_csv_export(latest_results)
+                else:
+                    print_colored("❌ No search results to export. Complete a search first.", Fore.RED if COLOR_ENABLED else None)
+                continue
+            
+            if user_input.lower() == 'compare':
+                if latest_results:
+                    show_comparison(latest_results)
+                else:
+                    print_colored("❌ No results to compare. Complete a search first.", Fore.RED if COLOR_ENABLED else None)
+                continue
+            
+            if user_input.lower() == 'financing':
+                if latest_results:
+                    vehicles = [r['vehicle'] for r in latest_results]
+                    show_financing_options(vehicles)
+                else:
+                    print_colored("❌ No results. Complete a search first.", Fore.RED if COLOR_ENABLED else None)
+                continue
+            
+            if user_input.lower() == 'best value':
+                if latest_results:
+                    find_best_fit(latest_results)
+                else:
+                    print_colored("❌ No results. Complete a search first.", Fore.RED if COLOR_ENABLED else None)
+                continue
+            
+            if user_input.lower() == 'report':
+                if latest_results:
+                    show_detailed_report(latest_results)
+                else:
+                    print_colored("❌ No results. Complete a search first.", Fore.RED if COLOR_ENABLED else None)
+                continue
+            
+            if user_input.lower() == 'restart':
+                state.step = "budget"
+                state.nv_cache.set("user_preferences", {})
+                print_colored("\n🔄 Starting fresh! What's your budget?", Fore.CYAN if COLOR_ENABLED else None)
                 continue
             
             # --- FIXED: Show Preferences with file fallback ---
@@ -256,29 +505,57 @@ def main():
                 print(f"   Usage: {final_prefs.get('usage', 'Not specified')}")
                 print(f"   Features: {final_prefs.get('features', 'Not specified')}\n")
                 
+                # Simulate progress with tqdm if available
+                search_items = vehicles if TQDM_ENABLED else [None]
+                if TQDM_ENABLED:
+                    for _ in tqdm(search_items, desc="Searching vehicles", ncols=60):
+                        pass
+                
                 results = search_vehicles(final_prefs, vehicles)
+                latest_results = results  # Store for later commands
                 save_search_history(session, results)
                 
                 if results:
-                    print("🚗 Top Recommendations:\n")
-                    for i, result in enumerate(results[:3], 1):
+                    print_colored("🚗 Top Recommendations:\n", Fore.GREEN if COLOR_ENABLED else None)
+                    for i, result in enumerate(results[:5], 1):
                         v = result['vehicle']
-                        print(f"{i}. {v['make']} {v['model']} ({v['year']})")
-                        print(f"   💰 Price: ${v['price']:,}")
-                        print(f"   ⛽ MPG: {v['mpg']}")
+                        price = v.get('price', 0)
+                        # Format price: LKR for local/API data, USD for legacy data
+                        if price > 500000:  # LKR prices are typically > 500k
+                            price_str = f"Rs. {price:,}"
+                        elif price > 0:
+                            price_str = f"${price:,}"
+                        else:
+                            price_str = "Price on request"
+                        source = v.get('source', '')
+                        print(f"{i}. {v['make']} {v['model']} ({v['year']}) [{source}]")
+                        print(f"   💰 Price: {price_str}")
+                        if v.get('mileage'):
+                            print(f"   🛣️  Mileage: {v['mileage']:,} km")
+                        if v.get('city'):
+                            print(f"   📍 Location: {v['city']}")
+                        if v.get('fuel'):
+                            print(f"   ⛽ Fuel: {v['fuel']}")
+                        elif v.get('mpg'):
+                            print(f"   ⛽ MPG: {v['mpg']}")
                         print(f"   🛡️ Safety: {v['safety_rating']}/5")
                         print(f"   📝 {v['description']}")
-                        print(f"   ✅ {', '.join(result['matches'])}")
+                        print(f"   ✅ Matches: {', '.join(result['matches'])}")
                         print()
                     
-                    print("💡 Type 'history' to see past searches")
-                    print("💡 Type 'show preferences' to see saved preferences")
-                    print("💡 Type 'exit' to quit (your preferences are saved!)")
+                    print_colored("💡 Available Commands:", Fore.CYAN if COLOR_ENABLED else None)
+                    print("   • compare       - Compare vehicles side-by-side")
+                    print("   • financing     - Show monthly payment estimates")
+                    print("   • best value    - Find the best value option")
+                    print("   • export csv    - Export to CSV file")
+                    print("   • report        - Show detailed analysis")
+                    print("   • history       - See past searches")
+                    print("   • help          - Show all commands")
                     
                     state.step = "budget"
-                    print("\n🔄 Starting new search! Your history and preferences are saved.")
+                    print_colored("\n🔄 Starting new search! Your history and preferences are saved.", Fore.CYAN if COLOR_ENABLED else None)
                 else:
-                    print("😅 No exact matches found. Try adjusting your preferences!")
+                    print_colored("😅 No exact matches found. Try adjusting your preferences!", Fore.YELLOW if COLOR_ENABLED else None)
                     state.step = "budget"
                     print("\n🔄 Let's try again with different preferences.")
             

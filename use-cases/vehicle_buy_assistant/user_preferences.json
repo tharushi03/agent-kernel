@@ -1,10 +1,10 @@
 {
   "tharu": {
-    "budget": "i want car under $50000",
-    "last_updated": "2026-08-30T21:33:09.157413",
-    "type": "Electric",
+    "budget": "i want a car under Rs 7000000",
+    "last_updated": "2026-08-31T15:33:27.323621",
+    "type": "SUV",
     "usage": "family",
-    "features": "safety"
+    "features": "safeety"
   },
   "367c4a32": {
     "budget": "under $30000",
