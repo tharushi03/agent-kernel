@@ -30,7 +30,7 @@ The Vehicle Buy Assistant is a multi-agent system that collects user preferences
 
 ### Key features
 
-- Conversational interaction through a CLI interface, with WhatsApp-ready integration
+- Conversational interaction through a CLI interface, with **Telegram bot** integration
 - **Real-time vehicle listings from Riyasewana.lk** via the [Parse.bot API](https://parse.bot) (22,000+ live Sri Lankan car listings)
 - Persistent memory for user preferences across sessions
 - Intelligent vehicle matching using structured filtering and scoring
@@ -53,7 +53,7 @@ The assistant uses a **3-level priority chain** to always serve the freshest ava
 - Non-volatile cache for persistence
 - Volatile cache for per-session state
 - Tool integration for vehicle search logic
-- WhatsApp integration readiness
+- **Telegram bot integration** via `AgentTelegramRequestHandler`
 
 ---
 
@@ -169,24 +169,24 @@ You: good safety features
 💡 Available Commands: compare | financing | best value | export csv | report
 ```
 
-### WhatsApp integration
+### Telegram integration
 
-The project includes a full WhatsApp integration layer built with **Agent Kernel's** `AgentWhatsAppRequestHandler` and OpenAI module support. It connects to the **Meta Cloud API** via webhook, routing every incoming WhatsApp message through the multi-agent pipeline.
+The project includes a full **Telegram bot** integration built with **Agent Kernel's** `AgentTelegramRequestHandler` and OpenAI module support. Every incoming Telegram message is routed through the multi-agent pipeline.
 
-> **Note:** A live Meta Business account is not required to review or demonstrate the integration. The code fully implements the correct webhook protocol — it can be activated simply by supplying the Meta credentials below.
+> **Note:** A live Telegram bot account is not required to review the integration. The code implements the correct Agent Kernel bot protocol and can be activated simply by supplying a Bot Token from @BotFather.
 
 ---
 
 #### How it works — Architecture
 
 ```
- WhatsApp User
+ Telegram User
       │  sends message
       ▼
- Meta Cloud API  ──(HTTPS POST webhook)──▶  Your Server (port 5000)
-                                                   │
-                                    AgentWhatsAppRequestHandler
-                                                   │
+ Telegram Bot API  ──(HTTPS POST webhook)──▶  Your Server (port 8000)
+                                                    │
+                                    AgentTelegramRequestHandler
+                                                    │
                        ┌───────────────────────────┼───────────────────────────┐
                        ▼                           ▼                           ▼
                  ProfileAgent              MarketAgent             RecommendationAgent
@@ -198,27 +198,20 @@ The project includes a full WhatsApp integration layer built with **Agent Kernel
                                          Parse.bot API
                                       (22,308 live listings)
                                                    │
-                                    ◀─ reply sent back to WhatsApp User ─▶
+                              ◀─ reply sent back to Telegram User ─▶
 ```
 
 ---
 
-#### Step 1 — Meta Developer Portal setup (conceptual)
+#### Step 1 — Create a Telegram Bot (via @BotFather)
 
-Even without a live account, here is exactly what you would configure on
-[developers.facebook.com](https://developers.facebook.com):
+1. Open Telegram and search for **@BotFather**
+2. Send `/newbot`
+3. Choose a name and username for your bot (e.g. `VehicleBuyAssistantBot`)
+4. Copy the **Bot Token** — it looks like `123456789:ABCdef...`
+5. *(Optional)* Set a description with `/setdescription` and a photo with `/setuserpic`
 
-1. **Create a Meta App** → select *Business* type
-2. **Add WhatsApp product** to your app
-3. **Generate a permanent access token** from System User in Business Manager
-4. **Configure the webhook** under WhatsApp → Configuration:
-   - **Callback URL:** `https://your-server.com/webhook`
-   - **Verify Token:** any secret string you choose _(must match `AK_WHATSAPP__VERIFY_TOKEN`)_
-   - **Subscribe to:** `messages` field
-5. **Note your Phone Number ID** from WhatsApp → API Setup
-
-The webhook verification handshake (GET request with `hub.challenge`) is handled
-automatically by `AgentWhatsAppRequestHandler` inside Agent Kernel — no manual code needed.
+Agent Kernel's `AgentTelegramRequestHandler` handles all Telegram Bot API protocol details automatically (webhook registration, update parsing, reply sending).
 
 ---
 
@@ -226,19 +219,14 @@ automatically by `AgentWhatsAppRequestHandler` inside Agent Kernel — no manual
 
 ```bash
 # Linux / macOS / Git Bash
-export PARSE_API_KEY="pmx_your_parse_api_key"         # Riyasewana live data
-export AK_WHATSAPP__VERIFY_TOKEN="your_verify_token"  # matches Meta Portal setting
-export AK_WHATSAPP__ACCESS_TOKEN="your_access_token"  # Meta permanent token
-export AK_WHATSAPP__PHONE_NUMBER_ID="your_phone_id"   # from Meta API Setup
-export AK_WHATSAPP__API_VERSION="v21.0"
-export OPENAI_API_KEY="sk-..."                         # optional
+export PARSE_API_KEY="pmx_your_parse_api_key"   # Riyasewana live data
+export TELEGRAM_BOT_TOKEN="your_bot_token"      # from @BotFather
+export OPENAI_API_KEY="sk-..."                  # optional
 
 # Windows PowerShell
 $env:PARSE_API_KEY="pmx_your_parse_api_key"
-$env:AK_WHATSAPP__VERIFY_TOKEN="your_verify_token"
-$env:AK_WHATSAPP__ACCESS_TOKEN="your_access_token"
-$env:AK_WHATSAPP__PHONE_NUMBER_ID="your_phone_id"
-$env:AK_WHATSAPP__API_VERSION="v21.0"
+$env:TELEGRAM_BOT_TOKEN="your_bot_token"
+$env:OPENAI_API_KEY="sk-..."
 ```
 
 ---
@@ -249,115 +237,127 @@ $env:AK_WHATSAPP__API_VERSION="v21.0"
 # Navigate to the project directory
 cd use-cases/vehicle_buy_assistant
 
-# Start the WhatsApp webhook server
-python interface/whatsapp_app.py
+# Start the Telegram webhook server
+python interface/telegram_app.py --server
 ```
 
 Expected startup output:
 
 ```
-=======================================================
-  Vehicle Buy Assistant — WhatsApp Server
-  Powered by Parse.bot / Riyasewana API
-=======================================================
-
-  Vehicle database: 30 listings loaded
-  Data source:      Riyasewana API
-
-  Required environment variables:
-    PARSE_API_KEY              (Riyasewana live data)
-    AK_WHATSAPP__VERIFY_TOKEN
-    AK_WHATSAPP__ACCESS_TOKEN
-    AK_WHATSAPP__PHONE_NUMBER_ID
-    AK_WHATSAPP__API_VERSION   (e.g. v21.0)
-    OPENAI_API_KEY             (optional)
-
-  Starting server on port 5000...
-=======================================================
+[Server] Starting Telegram webhook server on port 8000...
+[Server] Webhook URL: http://your-server.com/telegram/webhook
+[Server] Register this URL with Telegram Bot API:
+  curl https://api.telegram.org/bot<TOKEN>/setWebhook
+       ?url=https://your-server.com/telegram/webhook
+[Server] Press Ctrl+C to stop.
 ```
 
-> For local testing, use **ngrok** to expose port 5000 with a public HTTPS URL:
+> For local testing, use **ngrok** to expose port 8000:
 > ```bash
-> ngrok http 5000
+> ngrok http 8000
 > ```
-> Paste the ngrok URL as the Callback URL in the Meta Developer Portal.
+> Then register the ngrok URL:
+> ```bash
+> curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://abc123.ngrok.io/telegram/webhook"
+> ```
 
 ---
 
-#### Step 4 — Full WhatsApp conversation demo
+#### Step 4 — Competition demo (CLI simulation)
+
+Run without `--server` to get an interactive CLI that shows the exact
+conversation a Telegram user would experience:
+
+```bash
+python interface/telegram_app.py
+```
 
 ```
-BOT:  🚗 Welcome to Vehicle Buy Assistant!
-      🇱🇰 Sri Lanka's smart car advisor (30 live listings from Riyasewana)
-      💰 What's your budget?
+============================================================
+  Vehicle Buy Assistant — Telegram Bot Simulator
+  Powered by Parse.bot / Riyasewana API
+  (Production: connect via Telegram Bot API)
+============================================================
 
-USER: under 6 million
+  Database : 30 vehicle listings loaded
+  Source   : Riyasewana API
 
-BOT:  Great! 💰
-      🚗 What type of vehicle do you prefer?
-      • 🚙 SUV  • 🌿 Hybrid  • ⚡ Electric  • 🏠 Hatchback  • 🛻 Truck
+  Commands : /start | compare | financing | more | /help | exit
+============================================================
 
-USER: SUV
+[BOT]
+Vehicle Buy Assistant (30 live listings from Riyasewana)
+Sri Lanka's smart car advisor — powered by Parse.bot API
 
-BOT:  Excellent! 🎯
-      🛣️ What will you mainly use it for?
-      • 👨‍👩‍👧‍👦 Family  • 🚌 Commuting  • 🏔️ Off-road  • 💼 Business
+I'll help you find your perfect vehicle in 4 quick questions.
 
-USER: family
+What's your budget?
+(e.g. 'Rs. 5 million', 'under 8 million', '4,500,000')
 
-BOT:  Perfect! 👍
-      ✨ Any must-have features?
-      • 🛡️ Safety  • ⛽ Fuel efficiency  • 🌿 Hybrid  • 📱 Technology
+[YOU]  under 6 million
 
-USER: safety
+[BOT]
+Great!
 
-BOT:  ✅ Got it! Searching live Riyasewana listings...
+What type of vehicle do you prefer?
+  1. SUV        — spacious, Sri Lankan roads friendly
+  2. Sedan      — comfortable, fuel-efficient
+  3. Hybrid     — low fuel cost, very popular in SL
+  4. Electric   — zero fuel (Nissan Leaf, etc.)
+  5. Hatchback  — compact, easy to park
+  6. Van        — HiAce, Delica for large families
 
-      🚗 Top 3 Matches from Riyasewana API:
+[YOU]  SUV
+...(budget, type, usage, features collected)...
 
-      *1. Honda Vezel (2015)*
-         💰 Rs. 5,200,000
-         🛣️  78,000 km  |  📍 Kandy  |  ⛽ Hybrid
-         🛡️ Safety: 4/5
-         ✅ Within budget, Matches SUV, Great for families
+[BOT]
+Top 3 Matches from Riyasewana API:
+================================================
+1. Honda Vezel (2015)
+   Price    : Rs. 5,200,000
+   Mileage  : 78,000 km
+   Location : Kandy
+   Fuel     : Hybrid
+   Safety   : 4/5
+   Match    : Within budget, Matches SUV, Great for families
+------------------------------------------------
+2. Daihatsu Terios (2016)
+   Price    : Rs. 3,900,000
+   Mileage  : 76,000 km
+   Location : Anuradhapura
+   Fuel     : Petrol
+   Safety   : 3/5
+   Match    : Within budget, Matches SUV, Great for families
+------------------------------------------------
 
-      *2. Daihatsu Terios (2016)*
-         💰 Rs. 3,900,000
-         🛣️  76,000 km  |  📍 Anuradhapura  |  ⛽ Petrol
-         🛡️ Safety: 3/5
-         ✅ Within budget, Matches SUV, Great for families
+[YOU]  financing
 
-      *3. Toyota Rush (2019)*
-         💰 Rs. 5,800,000
-         🛣️  44,000 km  |  📍 Kandy  |  ⛽ Petrol
-         🛡️ Safety: 4/5
-         ✅ Matches SUV, Great for families
-
-      💡 Reply: compare | financing | more | restart
-
-USER: financing
-
-BOT:  💰 Financing Estimate — Honda Vezel
-      🏷️ Vehicle Price:    Rs. 5,200,000
-      📥 20% Down:         Rs. 1,040,000
-      🏦 Loan Amount:      Rs. 4,160,000
-      📅 Term: 60 months  |  📈 ~12% p.a.
-      💳 Monthly Payment:  *Rs. 92,480*
+[BOT]
+Financing Estimate — Honda Vezel
+==========================================
+  Vehicle Price   : Rs. 5,200,000
+  20% Down        : Rs. 1,040,000
+  Loan Amount     : Rs. 4,160,000
+  Term            : 60 months
+  Est. Rate       : ~12% p.a.
+  Monthly Payment : Rs. 92,480
+==========================================
 ```
 
 ---
 
-#### Webhook implementation reference
+#### Implementation reference (`interface/telegram_app.py`)
 
 | Component | What it does |
 |-----------|--------------|
-| `AgentWhatsAppRequestHandler` | Handles GET (webhook verification `hub.challenge`) and POST (message events) from Meta |
-| `VehicleBuyAssistantWhatsApp` | 4-stage conversation state machine: greeting → profile → results → followup |
+| `AgentTelegramRequestHandler` | Handles Telegram Bot API webhook updates (messages, commands) |
+| `VehicleBuyAssistantTelegram` | 4-stage conversation state machine: greeting → profile → results → followup |
 | `load_vehicle_database()` | Loads live Riyasewana data at startup via Parse.bot API with cache fallback |
-| `search_vehicles_for_whatsapp()` | Scores vehicles against budget (LKR), type, usage and features |
-| `format_vehicle_card()` | Formats each result as a clean WhatsApp message block |
-| `financing_response()` | Calculates monthly EMI at ~12% p.a. over 60 months in LKR |
-| `compare_response()` | Side-by-side comparison of top 3 matched vehicles |
+| `search_vehicles()` | Scores vehicles against budget (LKR), type, usage and features |
+| `format_vehicle()` | Formats each result as a clean text block |
+| `_financing()` | Calculates monthly EMI at ~12% p.a. over 60 months in LKR |
+| `_compare()` | Side-by-side comparison of top 3 matched vehicles |
+| `OpenAIModule([...])` | Registers all 3 agents with Agent Kernel for AI-powered responses |
 
 ### Project structure
 
@@ -385,7 +385,8 @@ use-cases/vehicle_buy_assistant/
 │   └── utils.py
 ├── interface/
 │   ├── __init__.py
-│   └── whatsapp_app.py
+│   ├── telegram_app.py      ← Telegram bot (main messaging interface)
+│   └── whatsapp_app.py      ← WhatsApp reference (kept for documentation)
 ├── data/
 │   ├── vehicles.json        ← 25 curated Sri Lankan vehicles (offline fallback)
 │   └── cached_vehicles.json ← Auto-cached API responses

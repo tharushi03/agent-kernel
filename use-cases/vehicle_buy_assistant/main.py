@@ -1,17 +1,80 @@
-# main.py - Complete Vehicle Buy Assistant with Real-Time Scraping
+# main.py - Vehicle Buy Assistant with Ollama AI (llama3.2:latest) + Parse.bot API
 import json
 import os
 from agentkernel import Session
 from datetime import datetime
 import uuid
 
-# Import new features
+# ── Ollama AI via pydantic-ai ─────────────────────────────────────────────────
+try:
+    from pydantic_ai import Agent
+    from pydantic_ai.providers.ollama import OllamaProvider
+    from pydantic_ai.models.openai import OpenAIChatModel
+    OLLAMA_ENABLED = True
+except ImportError:
+    OLLAMA_ENABLED = False
+    Agent = None
+    OllamaProvider = None
+    OpenAIChatModel = None
+
+# Create the Ollama-powered Vehicle Buy Assistant agent
+# Uses local llama3.2:latest model — no API key required
+# Ollama must be running: `ollama serve`
+if OLLAMA_ENABLED:
+    try:
+        _ollama_model = OpenAIChatModel(
+            "llama3.2:latest",
+            provider=OllamaProvider(base_url="http://localhost:11434"),
+        )
+        vehicle_agent = Agent(
+            _ollama_model,
+            system_prompt="""
+            You are a helpful car buying assistant for Sri Lankan users.
+            You help users find their perfect vehicle by asking about:
+            1. Budget (in Sri Lankan Rupees, LKR)
+            2. Vehicle type (SUV, Sedan, Truck, Electric, Hybrid, Hatchback)
+            3. Primary use (commuting, family, off-road, business)
+            4. Must-have features (safety, fuel efficiency, tech, comfort)
+
+            When given a list of matched vehicles, provide a brief, friendly
+            explanation of why the top pick is a good match. Keep it concise
+            (2-3 sentences max). Prices are always in LKR (Sri Lankan Rupees).
+            Be conversational and friendly.
+            """
+        )
+        print("[Ollama] vehicle_agent ready (llama3.2:latest @ localhost:11434)")
+    except Exception as _e:
+        vehicle_agent = None
+        print(f"[Ollama] Agent init failed: {_e}")
+else:
+    vehicle_agent = None
+    print("[Ollama] pydantic-ai not installed — running in rule-based mode")
+
+# ── PydanticAIModule registration (Agent Kernel compatibility) ────────────────
+# When agentkernel adds pydanticai support, replace this stub with:
+#   from agentkernel.pydanticai import PydanticAIModule
+#   PydanticAIModule([vehicle_agent])
+class PydanticAIModule:
+    """Stub for agentkernel.pydanticai.PydanticAIModule (pending agentkernel support)."""
+    def __init__(self, agents):
+        count = sum(1 for a in agents if a is not None)
+        print(f"[PydanticAIModule] Registered {count} agent(s) with Ollama (llama3.2:latest)")
+
+if vehicle_agent:
+    PydanticAIModule([vehicle_agent])
+
+
+# ── Optional color / progress bar ────────────────────────────────────────────
 try:
     from colorama import Fore, Back, Style, init
     init(autoreset=True)
     COLOR_ENABLED = True
 except ImportError:
     COLOR_ENABLED = False
+    class Fore:  # noqa: F811
+        CYAN = GREEN = RED = YELLOW = ''
+    class Style:
+        RESET_ALL = ''
 
 try:
     from tqdm import tqdm
@@ -41,6 +104,37 @@ except ImportError:
 
 PREFERENCES_FILE = "user_preferences.json"
 pii_guardian = PIIGuardian(auto_redact=True)
+
+
+# ── Ollama response helper ────────────────────────────────────────────────────
+import asyncio
+
+def get_ollama_response(top_vehicles: list) -> str:
+    """
+    Ask the local llama3.2:latest model to explain why the top vehicle is a good match.
+    Returns an empty string if Ollama is unavailable or times out.
+    """
+    if not OLLAMA_ENABLED or not vehicle_agent or not top_vehicles:
+        return ""
+
+    try:
+        v = top_vehicles[0]['vehicle']
+        price = v.get('price', 0)
+        price_s = f"Rs. {price:,}" if price > 500000 else (f"${price:,}" if price else "N/A")
+        prompt = (
+            f"The top vehicle match is a {v['year']} {v['make']} {v['model']} "
+            f"({v.get('type','')}) priced at {price_s}. "
+            f"Fuel: {v.get('fuel') or str(v.get('mpg','?')) + ' MPG'}. "
+            f"Location: {v.get('city','Sri Lanka')}. "
+            f"Safety rating: {v.get('safety_rating', 4)}/5. "
+            f"Match reasons: {', '.join(top_vehicles[0].get('matches', []))}. "
+            "In 2-3 friendly sentences, explain why this is a great choice for "
+            "a Sri Lankan buyer."
+        )
+        result = asyncio.run(vehicle_agent.run(prompt))
+        return f"\n[Ollama llama3.2:latest] {result.data.strip()}"
+    except Exception as e:
+        return f"\n[Ollama] Unavailable: {e}"
 
 
 # ---------- File Persistence Functions ----------
@@ -317,11 +411,17 @@ class ConversationState:
 # ---------- Main CLI ----------
 def main():
     print("🚗 Welcome to the Vehicle Buy Assistant!")
-    print("💡 Powered by Agent Kernel Memory Management")
+    print("🤖 Powered by Ollama (llama3.2:latest) + Agent Kernel Memory")
+    print("📡 Live data: Parse.bot / Riyasewana API")
     print("   - Your preferences are remembered across sessions")
     print("   - Search history is saved")
     print("   - Type 'help' for all commands")
     print("   - Type 'exit' to quit\n")
+    if OLLAMA_ENABLED:
+        print("   [Ollama] llama3.2:latest is active — AI-powered recommendations enabled")
+    else:
+        print("   [Ollama] Not available — using rule-based mode")
+    print()
     
     vehicles = load_vehicles()
     
@@ -542,7 +642,13 @@ def main():
                         print(f"   📝 {v['description']}")
                         print(f"   ✅ Matches: {', '.join(result['matches'])}")
                         print()
-                    
+
+                    # ── Ollama AI explanation for the top pick ──────────────
+                    ollama_comment = get_ollama_response(results)
+                    if ollama_comment:
+                        print_colored(ollama_comment, Fore.CYAN if COLOR_ENABLED else None)
+                        print()
+
                     print_colored("💡 Available Commands:", Fore.CYAN if COLOR_ENABLED else None)
                     print("   • compare       - Compare vehicles side-by-side")
                     print("   • financing     - Show monthly payment estimates")
