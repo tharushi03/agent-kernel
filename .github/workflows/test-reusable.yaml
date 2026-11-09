@@ -149,7 +149,13 @@ jobs:
         working-directory: ak-py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: ./build.sh && uv run pytest -s
+          OPENAI_BASE_URL: https://api.groq.com/openai/v1
+        # These three tests use the judge evaluator, which needs gpt-4o-mini and an embedding model; Groq offers neither.
+        run: >-
+          ./build.sh && uv run pytest -s
+          --deselect tests/test_cli_tester.py::test_compare_judge_mode
+          --deselect tests/test_cli_tester.py::test_compare_fallback_mode
+          --deselect tests/test_cli_tester.py::test_expect_with_different_modes
 
   transport-integration-tests:
     # The QueueTransportContract against REAL brokers (spec #495 Testing): the unit suite runs
@@ -230,6 +236,10 @@ jobs:
       - name: Run test - ${{ matrix.path }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: https://api.groq.com/openai/v1
+          OPENAI_DEFAULT_MODEL: openai/gpt-oss-120b
+          OPENAI_MODEL_NAME: openai/gpt-oss-120b
+          AK_TEST__LLM__MODEL: openai/gpt-oss-120b
           WALLED_API_KEY: ${{ secrets.WALLED_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}

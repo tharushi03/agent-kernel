@@ -5,4 +5,4 @@
 # expected answer is an exact value ("42", "hello sandbox", "XLII", "OFFLINE").
 # Fuzzy string matching keeps the comparison deterministic and offline: no LLM
 # judge is involved in evaluating results.
-mode: fuzzy
+mode: fallback

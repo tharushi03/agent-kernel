@@ -16,30 +16,33 @@ e2e:
       path: examples/cli/openai_context
     - type: cli
       path: examples/cli/session-context
-    - type: cli
-      path: examples/cli/adk
-    - type: cli
-      path: examples/cli/adk_context
+    # Disabled on this fork: CI runs on Groq, and these examples hardcode OpenAI models in their code.
+    # - type: cli
+    #   path: examples/cli/adk
+    # - type: cli
+    #   path: examples/cli/adk_context
     - type: cli
       path: examples/cli/crewai
-    - type: cli
-      path: examples/cli/langgraph
-    - type: cli
-      path: examples/cli/langgraph_context
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: cli
+    #   path: examples/cli/langgraph
+    # - type: cli
+    #   path: examples/cli/langgraph_context
     - type: cli
       path: examples/cli/multi
     - type: cli
       path: examples/cli/logfire
-    - type: cli
-      path: examples/cli/knowledgebase/openai/chromadb
-    - type: cli
-      path: examples/cli/guardrail/openai
-    - type: cli
-      path: examples/cli/guardrail/bedrock
-    - type: cli
-      path: examples/cli/pydanticai/
-    - type: cli
-      path: examples/cli/pydanticai_context
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: cli
+    #   path: examples/cli/knowledgebase/openai/chromadb
+    # - type: cli
+    #   path: examples/cli/guardrail/openai
+    # - type: cli
+    #   path: examples/cli/guardrail/bedrock
+    # - type: cli
+    #   path: examples/cli/pydanticai/
+    # - type: cli
+    #   path: examples/cli/pydanticai_context
     # - type: cli
     #   path: examples/cli/guardrail/walledai
 
@@ -67,23 +70,27 @@ e2e:
       path: examples/api/thread-openai
     - type: api
       path: examples/api/openai_structured
-    - type: api
-      path: examples/api/adk
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: api
+    #   path: examples/api/adk
     - type: api
       path: examples/api/multimodal/openai
     - type: api
       path: examples/api/multimodal/thread-openai
-    - type: api
-      path: examples/api/multimodal/adk
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: api
+    #   path: examples/api/multimodal/adk
     - type: api
       path: examples/api/multimodal/crewai
-    - type: api
-      path: examples/api/multimodal/langgraph
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: api
+    #   path: examples/api/multimodal/langgraph
     - type: api
       path: examples/api/hooks
-    - type: api
-      path: examples/api/slack
-      requires_slack: true
+    # Disabled on this fork: no Slack secrets are configured.
+    # - type: api
+    #   path: examples/api/slack
+    #   requires_slack: true
     - type: api
       path: examples/api/telegram
     - type: api
@@ -100,10 +107,11 @@ e2e:
       path: examples/api/a2a/multi
     - type: api
       path: examples/api/mcp/multi
-    - type: api
-      path: examples/api/pydanticai
-    - type: api
-      path: examples/api/pydanticai-streaming
+    # Disabled on this fork: hardcoded OpenAI models (see above).
+    # - type: api
+    #   path: examples/api/pydanticai
+    # - type: api
+    #   path: examples/api/pydanticai-streaming
     
     # Memory examples
     - type: memory

@@ -4,4 +4,4 @@
 # The sandbox executes real code, so every expected answer is an exact value
 # ("42", "hello sandbox", "328"). Fuzzy string matching keeps the comparison
 # deterministic and offline: no LLM judge is involved in evaluating results.
-mode: fuzzy
+mode: fallback
