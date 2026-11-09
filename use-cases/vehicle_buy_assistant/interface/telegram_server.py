@@ -60,7 +60,7 @@ from pydantic_ai import Agent as PydanticAgent
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.models.ollama import OllamaModel
 
-_ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+_ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 print(f"[Ollama] Connecting to {_ollama_url} ...")
 
 _model = OllamaModel(
@@ -80,7 +80,7 @@ Help users find their perfect vehicle by asking about:
 Be conversational, friendly, and concise. Always show prices in LKR.
 Recommend visiting riyasewana.com to contact sellers directly."""
 )
-print("[Ollama] vehicle_agent ready (llama3.2 @ localhost:11434)")
+print("[Ollama] vehicle_agent ready (llama3.2 @ localhost:11434/v1)")
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(title="Vehicle Buy Assistant Telegram Bot")

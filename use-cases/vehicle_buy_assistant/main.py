@@ -24,7 +24,7 @@ if OLLAMA_ENABLED:
     try:
         _ollama_model = OpenAIChatModel(
             "llama3.2:latest",
-            provider=OllamaProvider(base_url="http://localhost:11434"),
+            provider=OllamaProvider(base_url="http://localhost:11434/v1"),
         )
         vehicle_agent = Agent(
             _ollama_model,
@@ -42,7 +42,7 @@ if OLLAMA_ENABLED:
             Be conversational and friendly.
             """
         )
-        print("[Ollama] vehicle_agent ready (llama3.2:latest @ localhost:11434)")
+        print("[Ollama] vehicle_agent ready (llama3.2:latest @ localhost:11434/v1)")
     except Exception as _e:
         vehicle_agent = None
         print(f"[Ollama] Agent init failed: {_e}")

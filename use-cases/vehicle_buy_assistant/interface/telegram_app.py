@@ -62,7 +62,7 @@ try:
     from pydantic_ai import Agent
     from pydantic_ai.providers.ollama import OllamaProvider
     from pydantic_ai.models.openai import OpenAIChatModel
-    _ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+    _ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     _model = OpenAIChatModel(
         "llama3.2",
         provider=OllamaProvider(base_url=_ollama_url),
